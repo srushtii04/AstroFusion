@@ -77,7 +77,12 @@ export function HeroSection() {
               Start Exploring
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
-            <Button variant="heroOutline" size="xl">
+            <Button variant="heroOutline" size="xl"
+                    onClick={() => {
+                      document
+                        .getElementById("upload")
+                        ?.scrollIntoView({ behavior: "smooth" });
+                    }}>
               View Demo
             </Button>
           </motion.div>

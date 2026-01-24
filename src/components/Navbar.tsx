@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Menu, X, Rocket } from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
 
 const navLinks = [
   { name: "Upload", href: "#upload" },
@@ -13,6 +14,37 @@ const navLinks = [
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const navigate = useNavigate();
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  // Check login state
+  useEffect(() => {
+    setIsLoggedIn(!!localStorage.getItem("token"));
+  }, []);
+
+  // Close profile dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        profileRef.current &&
+        !profileRef.current.contains(e.target as Node)
+      ) {
+        setProfileOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    setIsLoggedIn(false);
+    setProfileOpen(false);
+    navigate("/");
+  };
 
   return (
     <motion.nav
@@ -24,7 +56,7 @@ export function Navbar() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <a href="#" className="flex items-center gap-2 group">
+          <Link to="/" className="flex items-center gap-2 group">
             <div className="relative">
               <Rocket className="w-8 h-8 text-primary transition-transform duration-300 group-hover:rotate-12" />
               <div className="absolute inset-0 bg-primary/30 blur-lg rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -32,7 +64,7 @@ export function Navbar() {
             <span className="text-xl font-display font-bold text-foreground">
               Astro<span className="text-primary">Fusion</span>
             </span>
-          </a>
+          </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">
@@ -48,11 +80,42 @@ export function Navbar() {
             ))}
           </div>
 
-          {/* CTA Button */}
-          <div className="hidden md:block">
-            <Button variant="glow" size="sm">
-              Get Started
-            </Button>
+          {/* Right CTA / Profile */}
+          <div className="hidden md:block relative" ref={profileRef}>
+            {!isLoggedIn ? (
+              <Button
+                type="button"
+                variant="glow"
+                size="sm"
+                asChild
+              >
+                <Link to="/login">Sign in</Link>
+              </Button>
+            ) : (
+              <>
+                {/* Profile Circle */}
+                <button
+                  type="button"
+                  onClick={() => setProfileOpen(!profileOpen)}
+                  className="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center font-semibold hover:opacity-90"
+                >
+                  U
+                </button>
+
+                {/* Dropdown */}
+                {profileOpen && (
+                  <div className="absolute right-0 mt-2 w-32 rounded-md border bg-background shadow-lg">
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-2 text-sm hover:bg-muted"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -85,9 +148,20 @@ export function Navbar() {
                   {link.name}
                 </a>
               ))}
-              <Button variant="glow" className="mt-2">
-                Get Started
-              </Button>
+
+              {!isLoggedIn ? (
+                <Button asChild variant="glow" className="mt-2">
+                  <Link to="/login">Sign in</Link>
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  className="mt-2"
+                  onClick={handleLogout}
+                >
+                  Logout
+                </Button>
+              )}
             </div>
           </motion.div>
         )}
