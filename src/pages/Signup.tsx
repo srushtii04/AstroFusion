@@ -22,7 +22,11 @@ export default function Signup() {
       body: JSON.stringify({ email, username, password }),
     });
 
+    const data = await res.json();
+
     if (res.ok) {
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("username", username);
       navigate("/");
     } else {
       alert("Signup failed");

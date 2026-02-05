@@ -17,11 +17,16 @@ export function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const navigate = useNavigate();
+  const [username, setUsername] = useState("");
   const profileRef = useRef<HTMLDivElement>(null);
 
   // Check login state
   useEffect(() => {
-    setIsLoggedIn(!!localStorage.getItem("token"));
+    const token = localStorage.getItem("token");
+    const name = localStorage.getItem("username");
+
+    setIsLoggedIn(!!token);
+    setUsername(name ?? "User");
   }, []);
 
   // Close profile dropdown on outside click
@@ -41,6 +46,7 @@ export function Navbar() {
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("username");
     setIsLoggedIn(false);
     setProfileOpen(false);
     navigate("/");
@@ -97,9 +103,14 @@ export function Navbar() {
                 <button
                   type="button"
                   onClick={() => setProfileOpen(!profileOpen)}
-                  className="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center font-semibold hover:opacity-90"
+                  className="flex items-center gap-2 px-3 py-1 rounded-full hover:bg-muted"
                 >
-                  U
+                  <span className="text-sm font-medium">
+                    Hello
+                  </span>
+                  <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-semibold">
+                    {username.charAt(0).toUpperCase()}
+                  </div>
                 </button>
 
                 {/* Dropdown */}

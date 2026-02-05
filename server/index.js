@@ -1,12 +1,31 @@
+// import dotenv from "dotenv";
+// import path from "path";
+// import { fileURLToPath } from "url";
+
+// const __filename = fileURLToPath(import.meta.url);
+// const __dirname = path.dirname(__filename);
+
+// // 👇 FORCE dotenv to read server/.env
+// dotenv.config({ path: path.join(__dirname, ".env") });
+
+// console.log("SUPABASE_URL =", process.env.SUPABASE_URL);
+// console.log("SUPABASE_SERVICE_KEY loaded =", !!process.env.SUPABASE_SERVICE_KEY);
+
+
+
 import express from "express";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import cors from "cors";
+import supabase from "./supabaseClient.js";
+import upload from "./uploadMiddleware.js";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+console.log("SUPABASE_URL:", process.env.SUPABASE_URL);
 
 mongoose.connect("mongodb://127.0.0.1:27017/astrofusion");
 
@@ -45,6 +64,34 @@ app.post("/auth/login", async (req, res) => {
   );
 
   res.json({ token });
+});
+
+app.post("/upload", upload.single("file"), async (req, res) => {
+  try {
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const filePath = `${Date.now()}_${file.originalname}`;
+
+    const { error } = await supabase.storage
+      .from("datasets")
+      .upload(filePath, file.buffer, {
+        contentType: file.mimetype,
+      });
+
+    if (error) throw error;
+
+    return res.json({
+      message: "File uploaded successfully",
+      filePath,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Upload failed" });
+  }
 });
 
 app.listen(5000, () =>

@@ -1,7 +1,16 @@
+import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { Upload, FileJson, FileSpreadsheet, Globe, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+
+console.log("useState =", useState);
+
+type UploadItem = {
+  name: string;
+  size: string;
+  status: "uploading" | "completed" | "failed";
+  progress: number;
+};
 
 const fileFormats = [
   { name: "CSV", icon: FileSpreadsheet, color: "text-success" },
@@ -17,7 +26,48 @@ const mockUploads = [
 ];
 
 export function DataIngestionSection() {
+  const [uploads, setUploads] = useState<UploadItem[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [dragActive, setDragActive] = useState(false);
+
+  const handleFileSelect = async (file: File) => {
+    const newUpload: UploadItem = {
+      name: file.name,
+      size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
+      status: "uploading",
+      progress: 0,
+    };
+  
+    setUploads((prev) => [newUpload, ...prev]);
+  
+    const formData = new FormData();
+    formData.append("file", file);
+  
+    try {
+      const res = await fetch("http://localhost:5000/upload", {
+        method: "POST",
+        body: formData,
+      });
+  
+      if (!res.ok) throw new Error("Upload failed");
+  
+      setUploads((prev) =>
+        prev.map((u) =>
+          u.name === file.name
+            ? { ...u, status: "completed", progress: 100 }
+            : u
+        )
+      );
+    } catch (err) {
+      setUploads((prev) =>
+        prev.map((u) =>
+          u.name === file.name
+            ? { ...u, status: "failed", progress: 0 }
+            : u
+        )
+      );
+    }
+  };
 
   return (
     <section id="upload" className="py-24 relative">
@@ -74,9 +124,23 @@ export function DataIngestionSection() {
                 or click to browse from your computer
               </p>
               
-              <Button variant="glow">
+              <Button
+                variant="glow"
+                onClick={() => fileInputRef.current?.click()}
+              >
                 Select Files
               </Button>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleFileSelect(file);
+                }}
+              />
+
 
               <div className="flex items-center justify-center gap-6 mt-8">
                 {fileFormats.map((format) => (
@@ -102,7 +166,7 @@ export function DataIngestionSection() {
             </h3>
 
             <div className="space-y-4">
-              {mockUploads.map((upload, index) => (
+              {uploads.map((upload, index) => (
                 <motion.div
                   key={upload.name}
                   initial={{ opacity: 0, y: 10 }}
@@ -122,7 +186,7 @@ export function DataIngestionSection() {
                     <div className="flex items-center gap-2">
                       {upload.status === "completed" ? (
                         <CheckCircle2 className="w-5 h-5 text-success" />
-                      ) : upload.status === "validating" ? (
+                      ) : upload.status === "failed" ? (
                         <AlertCircle className="w-5 h-5 text-warning" />
                       ) : (
                         <Loader2 className="w-5 h-5 text-primary animate-spin" />
@@ -142,7 +206,7 @@ export function DataIngestionSection() {
                       className={`h-full rounded-full ${
                         upload.status === "completed"
                           ? "bg-success"
-                          : upload.status === "validating"
+                          : upload.status === "failed"
                           ? "bg-warning"
                           : "bg-primary"
                       }`}
