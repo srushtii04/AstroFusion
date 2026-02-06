@@ -20,6 +20,7 @@ import jwt from "jsonwebtoken";
 import cors from "cors";
 import supabase from "./supabaseClient.js";
 import upload from "./uploadMiddleware.js";
+import Dataset from "./models/Dataset.js";
 
 const app = express();
 app.use(cors());
@@ -36,6 +37,28 @@ const UserSchema = new mongoose.Schema({
 });
 
 const User = mongoose.model("User", UserSchema);
+
+// JWT AUTH MIDDLEWARE
+function auth(req, res, next) {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader) {
+    return res.status(401).json({ message: "No token provided" });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const decoded = jwt.verify(token, "SECRET_KEY");
+
+    req.user = decoded; 
+    // { userId: "mongoId" }
+
+    next();
+  } catch (err) {
+    return res.status(401).json({ message: "Invalid token" });
+  }
+}
 
 // SIGNUP
 app.post("/auth/signup", async (req, res) => {
@@ -66,31 +89,72 @@ app.post("/auth/login", async (req, res) => {
   res.json({ token });
 });
 
-app.post("/upload", upload.single("file"), async (req, res) => {
+app.post("/upload", auth, upload.single("file"), async (req, res) => {
   try {
     const file = req.file;
+    const userId = req.user.userId; // TEMP — send from frontend
 
     if (!file) {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    const filePath = `${Date.now()}_${file.originalname}`;
+    if (!userId) {
+      return res.status(400).json({ message: "UserId missing" });
+    }
 
+    /**
+     * Unique filename
+     */
+    const timestamp = Date.now();
+    const storedFileName = `${timestamp}_${file.originalname}`;
+
+    /**
+     * USER-WISE STORAGE PATH
+     * datasets/userId/raw/file.xlsx
+     */
+    const filePath = `${userId}/raw/${storedFileName}`;
+
+    /**
+     * Upload to Supabase
+     */
     const { error } = await supabase.storage
       .from("datasets")
       .upload(filePath, file.buffer, {
         contentType: file.mimetype,
       });
 
-    if (error) throw error;
+    if (error) {
+      console.error("Supabase upload error:", error);
+      return res.status(500).json({ message: "Upload failed" });
+    }
 
-    return res.json({
-      message: "File uploaded successfully",
-      filePath,
+    /**
+     * Save metadata in Mongo
+     */
+    const dataset = await Dataset.create({
+      userId,
+
+      fileName: file.originalname,
+      fileType: file.mimetype,
+      fileSize: file.size,
+
+      rawFile: {
+        bucket: "datasets",
+        path: filePath,
+      },
     });
+
+    /**
+     * Response
+     */
+    res.json({
+      message: "File uploaded successfully",
+      dataset,
+    });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Upload failed" });
+    console.error("Server error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 });
 

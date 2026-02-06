@@ -42,10 +42,15 @@ export function DataIngestionSection() {
   
     const formData = new FormData();
     formData.append("file", file);
+    //formData.append("userId", user._id);
   
     try {
+      const token = localStorage.getItem("token");
       const res = await fetch("http://localhost:5000/upload", {
         method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
         body: formData,
       });
   
